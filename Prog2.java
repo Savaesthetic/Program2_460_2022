@@ -1,34 +1,59 @@
 import java.io.*;
+import java.util.HashMap;
 
 // QUESTIONS:
 // ARE OUR BUCKETS SORTED?? indexing by project id but records in db file are sorted on credits issued if I remember correnctly
 
 class Prog2 {
-    public static void main (String[] args) {
-        File fileRef = null; // Reference to input file
-        RandomAccessFile dataStream = null; // Reference to input stream of input file
+    // Directory as a HashMap which will story key:value pairs corresponding to Index:HashBucketPointer
+    private static HashMap<String, Integer> directory = new HashMap<String, Integer>();
 
-        if (args.length == 0) { // Check to make sure file was provided as argument
+    public static void main (String[] args) {
+        File dbRef = null; // Reference to Database file
+        RandomAccessFile dbStream = null; // Reference to data stream of the Database File
+        RandomAccessFile bucketStream = null; // Reference to the data stream for the Hash Bucket File
+
+        // Creating file reference to the Database and Hashbucket files
+        if (args.length == 0) {
             System.out.println("Error: .bin file required as input.");
             System.exit(-1);
         } else {
             try {
-            fileRef = new File(args[0]);
-            dataStream = new RandomAccessFile(fileRef, "rw");
+                dbRef = new File(args[0]);
+                dbStream = new RandomAccessFile(dbRef, "rw");
+                bucketStream = createNewBucketFile();
             } catch (FileNotFoundException e) {
-            System.out.println("I/O ERROR: Something went wrong with the "
-                             + "creation of the RandomAccessFile object.");
-            System.exit(-1);
+                System.out.println("I/O ERROR: Something went wrong with the "
+                                + "creation of the RandomAccessFile object.");
+                System.exit(-1);
             }
         }
 
         // Main program functions
-        readDatabaseFile(dataStream);
+        readDatabaseFile(dbStream, bucketStream);
+    }
+
+    static RandomAccessFile createNewBucketFile() {
+        File bucketRef = new File("hashBucket.bin");
+        try {
+            if (bucketRef.exists()) {
+                bucketRef.delete();
+                bucketRef.createNewFile();
+            } else {
+                bucketRef.createNewFile();
+            }
+            return new RandomAccessFile(bucketRef, "rw");
+        } catch (IOException e) {
+            System.out.println("I/O ERROR: Something went wrong with the "
+                                + "creation of the Hash Bucket File.");
+            System.exit(-1);
+            return null;
+        }
     }
 
     // This will be used to convert the Project ID given by user input
-    // into and Integer to properly search our hash with
-    static String convertIDtoInt(String id) {
+    // into an integer string to properly index into our directory
+    static String Integerize(String id) {
         char[] idArray = id.toCharArray();
         StringBuilder output = new StringBuilder();
         for (int i = idArray.length-1; i >= 0; i--) {
@@ -42,7 +67,7 @@ class Prog2 {
     // This will be used to open and read the database file given as input
     // Using this database file will compromise of reading through the records
     // one by one adding each record into our hash bucket file.
-    static void readDatabaseFile(RandomAccessFile dataStream) {
+    static void readDatabaseFile(RandomAccessFile dataStream, RandomAccessFile bucketStream) {
         //TODO
         try {
             int[] fieldLengths = getFieldLengths(dataStream); // Lengths of string fields in records
@@ -125,6 +150,7 @@ class Prog2 {
 }
 
 // Dont know if this needs to be a class or just an object
+//Probably should turn it into a dictionary/map with key value pairs of "String"->BucketPointers
 class Directory {
 
 }
