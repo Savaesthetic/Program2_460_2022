@@ -1,8 +1,7 @@
 import java.io.*;
 
 class Prog2 {
-    static Integer[] directory = new Integer[] {null, null, null, null, null, null, null, null, null, null};
-    static int globalDepth = 1;
+    static Directory directory = new Directory(); // Initialize a directory to be used for bucket file
     public static void main (String[] args) {
         File dbRef = null; // Reference to Database file
         RandomAccessFile dbStream = null; // Reference to data stream of the Database File
@@ -49,7 +48,6 @@ class Prog2 {
     // This will be used to convert the Project ID given by user input
     // into an integer string to properly index into our directory
     static String Integerize(String id) {
-        int bufferedLength = id.length(); // The length of the original id string with padding
         char[] idArray = id.trim().toCharArray();
         StringBuilder output = new StringBuilder();
 
@@ -57,11 +55,6 @@ class Prog2 {
             int asciiVal = (int) idArray[i]; // cast character to integer to get ascii value
             int lsd = asciiVal % 10; // get the least significant digit by using mod
             output.append(lsd); // concatenate all of the lsd into a String for to get search index
-        }
-
-        // Pad integer string to same length as original string to keep consistancy
-        while (output.length() < bufferedLength) {
-            output.insert(0, "0");
         }
 
         return output.toString();
@@ -79,26 +72,108 @@ class Prog2 {
             dataStream.seek(0); // Start the iteration at the beginning of the file
             int i = 0;
             while (i < numRecords) {
+                long dbIndex = dataStream.getFilePointer();
                 DataRecord record = new DataRecord();
                 record.fetchObject(dataStream, fieldLengths);
-                addRecordToBucketFile(bucketStream, record);
+                addRecordToBucketFile(bucketStream, record.getProjectId(), dbIndex);
                 i++;
             }
+            //testPrintBuckets(bucketStream, fieldLengths[0]);
+            //testPrintDir();
         } catch (IOException e) {
             System.out.println("I/O ERROR: Couldn't get the file's length.");
             System.exit(-1);
         }
     }
 
-    // This function will be used to add a given record to the bucket file we are creating
-    static void addRecordToBucketFile(RandomAccessFile bucketStream, DataRecord record) {
-        String index = Integerize(record.getProjectId()); // Convert record id into a string to index into directory
-        Integer bucketIndex = directory[Integer.parseInt(index.substring(0, globalDepth))];
-        System.out.printf("ID: %s, Integerized: %s, Index: %d, Val: %d\n", record.getProjectId(), index, Integer.parseInt(index.substring(0, globalDepth)), bucketIndex);
-        // TODO
+    static void testPrintBuckets(RandomAccessFile bucketStream, int idLength) {
+        System.out.println("TEST INSERTS");
+        Long[] testMappings = directory.getMappings();
+        for (Long index : testMappings) {
+            Bucket testBucket = getBucket(bucketStream, index, idLength);
+            System.out.println(testBucket);
+        }
     }
 
-        /*
+    static void testPrintDir() {
+        Long[] testMappings = directory.getMappings();
+        for (Long index : testMappings) {
+            System.out.println(index);
+        }
+    }
+
+    // This function will be used to add a given record to the bucket file we are creating
+    static void addRecordToBucketFile(RandomAccessFile bucketStream, String projectId, long dbIndex) {
+        String intId = Integerize(projectId); // Convert record id into a string to index into directory
+        int dirIndex = Integer.parseInt(intId.substring(0, directory.getGlobalDepth()));
+        Long bucketIndex = directory.getValueAtIndex(dirIndex);
+        Bucket currBucket = getBucket(bucketStream, bucketIndex, projectId.length());
+        addRecordAndWrite(bucketStream, currBucket, projectId, dbIndex, dirIndex);
+        //System.out.printf("ID: %s, Integerized: %s, Index: %d, Val: %d\n", projectId, intId, dirIndex, bucketIndex);
+    }
+
+    static Bucket getBucket(RandomAccessFile bucketStream, Long bucketIndex, int idLength) {
+        Bucket currBucket = new Bucket();
+        if (bucketIndex == null) {
+            currBucket.pad(idLength);
+            return currBucket;
+        } else {
+            try {
+                bucketStream.seek(bucketIndex);
+                currBucket.readObject(bucketStream, idLength);
+                return currBucket;
+            } catch (IOException e) {
+                System.out.println("Error: Could not index into bucket file during retrieval.");
+                System.exit(-1);
+                return null;
+            }
+        }
+    }
+
+    static void addRecordAndWrite(RandomAccessFile bucketStream, Bucket currBucket, 
+    String recordID, long dbIndex, int dirIndex) {
+        if (!currBucket.isFull()) {
+            currBucket.addRecord(recordID, dbIndex);
+            try {
+                if (directory.getValueAtIndex(dirIndex) == null) {
+                    bucketStream.seek(bucketStream.length()); // Seek to the end of file
+                    directory.setValueAtIndex(dirIndex, bucketStream.getFilePointer()); // Get pointer to current spot
+                    currBucket.writeObject(bucketStream); // Write bucket to end of file
+                    return;
+                } else {
+                    bucketStream.seek(directory.getValueAtIndex(dirIndex));
+                    currBucket.writeObject(bucketStream);
+                    return;
+                }
+            } catch (IOException e) {
+                System.out.println("Error: Error writing bucket to file.");
+                    System.exit(-1);
+            }
+        } else {
+            if (currBucket.getBucketDepth() == directory.getGlobalDepth()) {
+                directory.splitDirectory();
+                dirIndex = dirIndex*10;
+            }
+            distributeBucket(currBucket, recordID.length(), bucketStream, dirIndex);
+        }
+    }
+
+    static void distributeBucket(Bucket currBucket, int idLength, RandomAccessFile bucketStream, int dirIndex) {
+        Bucket[] newBuckets = new Bucket[10];
+        for (int i = 0; i < 10; i++) {
+            Bucket newBucket = new Bucket();
+            newBucket.setDepth(currBucket.getBucketDepth() + 1);
+            newBucket.pad(idLength);
+        }
+        IndexRecord[] currRecords = currBucket.getRecords();
+        for (IndexRecord record : currRecords) {
+            String recordId = record.getId();
+            String intId = Integerize(recordId);
+            addRecordAndWrite(bucketStream, currBucket, recordId, dbIndex, dirIndex);
+        }
+    }
+
+    /*
      * static void getFieldLengths -- get the lengths of 
      * each string field of a record by reading information
      * stored at the end of an input file
