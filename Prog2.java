@@ -1,4 +1,5 @@
 import java.io.*;
+import java.util.Scanner;
 
 class Prog2 {
     static Directory directory = new Directory(); // Initialize a directory to be used for bucket file
@@ -25,6 +26,7 @@ class Prog2 {
 
         // Main program functions
         readDatabaseFile(dbStream, bucketStream);
+        searchDbWithIndex(dbStream, bucketStream);
     }
 
     static RandomAccessFile createNewBucketFile() {
@@ -78,8 +80,8 @@ class Prog2 {
                 addRecordToBucketFile(bucketStream, record.getProjectId(), dbIndex);
                 i++;
             }
-            //testPrintBuckets(bucketStream, fieldLengths[0]);
-            //testPrintDir();
+            testPrintBuckets(bucketStream, fieldLengths[0]);
+            testPrintDir();
         } catch (IOException e) {
             System.out.println("I/O ERROR: Couldn't get the file's length.");
             System.exit(-1);
@@ -104,12 +106,15 @@ class Prog2 {
 
     // This function will be used to add a given record to the bucket file we are creating
     static void addRecordToBucketFile(RandomAccessFile bucketStream, String projectId, long dbIndex) {
-        String intId = Integerize(projectId); // Convert record id into a string to index into directory
-        int dirIndex = Integer.parseInt(intId.substring(0, directory.getGlobalDepth()));
-        Long bucketIndex = directory.getValueAtIndex(dirIndex);
+        String intId = Integerize(projectId); // Convert project id into an integer string to index into directory
+        int dirIndex = Integer.parseInt(intId.substring(0, directory.getGlobalDepth())); // Index used to access directory
+        Long bucketIndex = directory.getValueAtIndex(dirIndex); // Index for bucket in bucket file
+
         Bucket currBucket = getBucket(bucketStream, bucketIndex, projectId.length());
-        addRecordAndWrite(bucketStream, currBucket, projectId, dbIndex, dirIndex);
-        //System.out.printf("ID: %s, Integerized: %s, Index: %d, Val: %d\n", projectId, intId, dirIndex, bucketIndex);
+        addRecord(currBucket, projectId, dbIndex, dirIndex);
+        writeBucket(bucketStream, currBucket, dirIndex);
+
+        System.out.printf("ID: %s, Integerized: %s, Index: %d, Val: %d\n", projectId, intId, dirIndex, bucketIndex);
     }
 
     static Bucket getBucket(RandomAccessFile bucketStream, Long bucketIndex, int idLength) {
@@ -130,46 +135,58 @@ class Prog2 {
         }
     }
 
-    static void addRecordAndWrite(RandomAccessFile bucketStream, Bucket currBucket, 
-    String recordID, long dbIndex, int dirIndex) {
+    static void addRecord(Bucket currBucket, String recordId, long dbIndex, int dirIndex) {
         if (!currBucket.isFull()) {
-            currBucket.addRecord(recordID, dbIndex);
-            try {
-                if (directory.getValueAtIndex(dirIndex) == null) {
-                    bucketStream.seek(bucketStream.length()); // Seek to the end of file
-                    directory.setValueAtIndex(dirIndex, bucketStream.getFilePointer()); // Get pointer to current spot
-                    currBucket.writeObject(bucketStream); // Write bucket to end of file
-                    return;
-                } else {
-                    bucketStream.seek(directory.getValueAtIndex(dirIndex));
-                    currBucket.writeObject(bucketStream);
-                    return;
-                }
-            } catch (IOException e) {
-                System.out.println("Error: Error writing bucket to file.");
-                    System.exit(-1);
-            }
+            currBucket.addRecord(recordId, dbIndex);
         } else {
             if (currBucket.getBucketDepth() == directory.getGlobalDepth()) {
                 directory.splitDirectory();
-                dirIndex = dirIndex*10;
+                dirIndex *= 10;
             }
-            distributeBucket(currBucket, recordID.length(), bucketStream, dirIndex);
+            Bucket[] newBuckets = new Bucket[10];
+            for (int i = 0; i < 10; i++) {
+                Bucket newBucket = new Bucket();
+                newBucket.setDepth(currBucket.getBucketDepth() + 1);
+                newBucket.pad(recordId.length());
+            }
+            addRecordToBucketFile(bucketStream, projectId, dbIndex);
         }
     }
 
-    static void distributeBucket(Bucket currBucket, int idLength, RandomAccessFile bucketStream, int dirIndex) {
-        Bucket[] newBuckets = new Bucket[10];
-        for (int i = 0; i < 10; i++) {
-            Bucket newBucket = new Bucket();
-            newBucket.setDepth(currBucket.getBucketDepth() + 1);
-            newBucket.pad(idLength);
+    static void writeBucket(RandomAccessFile bucketStream, Bucket currBucket, int dirIndex) {
+        try {
+            if (directory.getValueAtIndex(dirIndex) == null) {
+                bucketStream.seek(bucketStream.length()); // Seek to the end of file
+                directory.setValueAtIndex(dirIndex, bucketStream.getFilePointer()); // Set directory to point to current spot
+                currBucket.writeObject(bucketStream); // Write bucket
+                return;
+            } else {
+                bucketStream.seek(directory.getValueAtIndex(dirIndex));
+                currBucket.writeObject(bucketStream);
+                return;
+            }
+        } catch (IOException e) {
+            System.out.println("Error: Error writing bucket to file.");
+                System.exit(-1);
         }
-        IndexRecord[] currRecords = currBucket.getRecords();
-        for (IndexRecord record : currRecords) {
-            String recordId = record.getId();
-            String intId = Integerize(recordId);
-            addRecordAndWrite(bucketStream, currBucket, recordId, dbIndex, dirIndex);
+    }
+
+    static void searchDbWithIndex(RandomAccessFile dbStream, RandomAccessFile bucketStream) {
+        Scanner userInput = new Scanner(System.in);
+        while (true) {
+            System.out.println("Enter Project ID suffix to search for (-1 to exit).");
+            String input = userInput.nextLine();
+            if (input.equals("-1")) {
+                break;
+            }
+            // TODO
+        }
+        try {
+            dbStream.close();
+            bucketStream.close();
+        } catch (IOException e) {
+            System.out.println("Error: Error closing database or bucket file.");
+            System.exit(-1);
         }
     }
 
