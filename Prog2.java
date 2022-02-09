@@ -111,9 +111,10 @@ class Prog2 {
         Long bucketIndex = directory.getValueAtIndex(dirIndex); // Index for bucket in bucket file
 
         Bucket currBucket = getBucket(bucketStream, bucketIndex, projectId.length());
-        addRecord(currBucket, projectId, dbIndex, dirIndex);
-        writeBucket(bucketStream, currBucket, dirIndex);
-
+        boolean writeFlag = addRecord(bucketStream, currBucket, projectId, dbIndex, dirIndex);
+        if (writeFlag) {
+            writeBucket(bucketStream, currBucket, dirIndex);
+        }
         System.out.printf("ID: %s, Integerized: %s, Index: %d, Val: %d\n", projectId, intId, dirIndex, bucketIndex);
     }
 
@@ -121,6 +122,7 @@ class Prog2 {
         Bucket currBucket = new Bucket();
         if (bucketIndex == null) {
             currBucket.pad(idLength);
+            currBucket.setDepth(directory.getGlobalDepth());
             return currBucket;
         } else {
             try {
@@ -135,21 +137,25 @@ class Prog2 {
         }
     }
 
-    static void addRecord(Bucket currBucket, String recordId, long dbIndex, int dirIndex) {
+    static boolean addRecord(RandomAccessFile bucketStream, Bucket currBucket, String recordId, 
+    long dbIndex, int dirIndex) {
         if (!currBucket.isFull()) {
             currBucket.addRecord(recordId, dbIndex);
+            return true;
         } else {
             if (currBucket.getBucketDepth() == directory.getGlobalDepth()) {
                 directory.splitDirectory();
                 dirIndex *= 10;
             }
-            Bucket[] newBuckets = new Bucket[10];
             for (int i = 0; i < 10; i++) {
-                Bucket newBucket = new Bucket();
-                newBucket.setDepth(currBucket.getBucketDepth() + 1);
-                newBucket.pad(recordId.length());
+                directory.setValueAtIndex(dirIndex + i, null);
             }
-            addRecordToBucketFile(bucketStream, projectId, dbIndex);
+            IndexRecord[] currRecords = currBucket.getRecords();
+            for (IndexRecord record : currRecords) {
+                addRecordToBucketFile(bucketStream, record.getId(), record.getIndexPointer());
+            }
+            addRecordToBucketFile(bucketStream, recordId, dbIndex);
+            return false;
         }
     }
 

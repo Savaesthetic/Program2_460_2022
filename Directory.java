@@ -3,28 +3,28 @@ public class Directory {
     private int globalDepth;
 
     Directory() {
-        this.globalDepth = 1;
+        globalDepth = 1;
         indexMappings = new Long[] {null, null, null, null, null, null, null, null, null, null};
     }
 
     int getGlobalDepth(){
-        return this.globalDepth;
+        return globalDepth;
     }
 
     Long[] getMappings() {
-        return this.indexMappings;
+        return indexMappings;
     }
 
     Long getValueAtIndex(int index) {
         return indexMappings[index];
     }
 
-    void setValueAtIndex(int index, long pointerIndex) {
-        this.indexMappings[index] = pointerIndex;
+    void setValueAtIndex(int index, Long pointerIndex) {
+        indexMappings[index] = pointerIndex;
     }
 
     void splitDirectory() {
-        this.globalDepth++;
+        globalDepth++;
         Long[] newMappings = new Long[indexMappings.length * 10];
         int z = 0;
         for (int i = 0; i < indexMappings.length; i++) {
@@ -37,10 +37,10 @@ public class Directory {
     }
 
     void setGlobalDepth(int val){
-        this.globalDepth = val;
+        globalDepth = val;
     }
 
     void setIndexMappings(Long[] val) {
-        this.indexMappings = val;
+        indexMappings = val;
     }
 }
