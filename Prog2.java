@@ -26,7 +26,7 @@ class Prog2 {
 
         // Main program functions
         readDatabaseFile(dbStream, bucketStream);
-        searchDbWithIndex(dbStream, bucketStream);
+        getSearchQuerie(dbStream, bucketStream);
     }
 
     static RandomAccessFile createNewBucketFile() {
@@ -177,7 +177,7 @@ class Prog2 {
         }
     }
 
-    static void searchDbWithIndex(RandomAccessFile dbStream, RandomAccessFile bucketStream) {
+    static void getSearchQuerie(RandomAccessFile dbStream, RandomAccessFile bucketStream) {
         Scanner userInput = new Scanner(System.in);
         while (true) {
             System.out.println("Enter Project ID suffix to search for (-1 to exit).");
@@ -185,14 +185,58 @@ class Prog2 {
             if (input.equals("-1")) {
                 break;
             }
-            // TODO
+            String intInput = Integerize(input);
+            if (intInput.length() >= directory.getGlobalDepth()) {
+                int dirIndex = Integer.parseInt(intInput.substring(0, directory.getGlobalDepth()));
+                searchInRange(dbStream, bucketStream, dirIndex, 1, input);
+            } else {
+                int dirIndex = Integer.parseInt(intInput);
+                int startIndex = dirIndex * (int) (Math.pow(10, directory.getGlobalDepth()- input.length()));
+                int range = (int) (Math.pow(10, directory.getGlobalDepth() - input.length()));
+                searchInRange(dbStream, bucketStream, startIndex, range, input);
+            }
         }
         try {
+            userInput.close();
             dbStream.close();
             bucketStream.close();
         } catch (IOException e) {
             System.out.println("Error: Error closing database or bucket file.");
             System.exit(-1);
+        }
+    }
+
+    static void searchInRange(RandomAccessFile dbStream, RandomAccessFile bucketStream,
+     int startIndex, int range, String query) {
+         int exclusiveEnd = startIndex + range;
+         int[] fieldLengths = getFieldLengths(dbStream); // Lengths of string fields in records
+         for (int i = startIndex; i < exclusiveEnd; i++) {
+             Long bucketIndex = directory.getValueAtIndex(i);
+             Bucket currBucket = getBucket(bucketStream, bucketIndex, query.length());
+             searchBucket(dbStream, currBucket, query, fieldLengths);
+         }
+    }
+
+    static void searchBucket(RandomAccessFile dbStream, Bucket curBucket, String query, int[] fieldLengths) {
+        IndexRecord[] indexes = curBucket.getRecords();
+        for (IndexRecord index : indexes) {
+            if (index.getId().endsWith(query)) {
+                DataRecord record = getRecord(dbStream, index.getIndexPointer(), fieldLengths);
+                System.out.println(record);
+            }
+        }
+    }
+
+    static DataRecord getRecord(RandomAccessFile dbStream, long index, int[] fieldLengths) {
+        try {
+            dbStream.seek(index);
+            DataRecord record = new DataRecord();
+            record.fetchObject(dbStream, fieldLengths);
+            return record;
+        } catch (IOException e) {
+            System.out.println("Error: Error reading record from database.");
+            System.exit(-1);
+            return null;
         }
     }
 
