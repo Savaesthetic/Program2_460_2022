@@ -26,9 +26,10 @@ public class IndexRecord {
             return indexPointer;
         }
 
-        void readObject(RandomAccessFile stream, int idLength) {
-            byte[] idBytes = new byte[idLength];
+        void readObject(RandomAccessFile stream) {
             try {
+                int stringLength = stream.readInt();
+                byte[] idBytes = new byte[stringLength];
                 stream.readFully(idBytes);
                 this.id = new String(idBytes);
                 indexPointer = stream.readLong();
@@ -40,6 +41,7 @@ public class IndexRecord {
 
         void writeObject(RandomAccessFile stream) {
             try {
+                stream.writeInt(id.length());
                 stream.writeBytes(id);
                 stream.writeLong(indexPointer);
             } catch (IOException e) {

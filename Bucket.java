@@ -42,10 +42,10 @@ public class Bucket {
         }
     }
 
-    void readObject(RandomAccessFile stream, int idLength) {
+    void readObject(RandomAccessFile stream) {
         for (int i = 0; i < 50; i++) {
             IndexRecord record = new IndexRecord();
-            record.readObject(stream, idLength);
+            record.readObject(stream);
             this.mappings[i] = record;
         }
         try {

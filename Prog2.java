@@ -26,6 +26,7 @@ class Prog2 {
 
         // Main program functions
         readDatabaseFile(dbStream, bucketStream);
+        countRecords(bucketStream);
         getSearchQuerie(dbStream, bucketStream);
     }
 
@@ -78,6 +79,7 @@ class Prog2 {
                 DataRecord record = new DataRecord();
                 record.fetchObject(dataStream, fieldLengths);
                 addRecordToBucketFile(bucketStream, record.getProjectId(), dbIndex);
+                System.out.println("Records added: " + i);
                 i++;
             }
             testPrintBuckets(bucketStream, fieldLengths[0]);
@@ -104,6 +106,16 @@ class Prog2 {
         }
     }
 
+    static void countRecords(RandomAccessFile bucketStream) {
+        int sum = 0;
+        Long[] temp = directory.getMappings();
+        for (int i = 0; i < temp.length; i++) {
+            Bucket tempBucket = getBucket(bucketStream, temp[i], 0);
+            sum += tempBucket.getNumRecords();
+        }
+        System.out.println(sum);
+    }
+
     // This function will be used to add a given record to the bucket file we are creating
     static void addRecordToBucketFile(RandomAccessFile bucketStream, String projectId, long dbIndex) {
         String intId = Integerize(projectId); // Convert project id into an integer string to index into directory
@@ -127,7 +139,7 @@ class Prog2 {
         } else {
             try {
                 bucketStream.seek(bucketIndex);
-                currBucket.readObject(bucketStream, idLength);
+                currBucket.readObject(bucketStream);
                 return currBucket;
             } catch (IOException e) {
                 System.out.println("Error: Could not index into bucket file during retrieval.");
@@ -143,9 +155,14 @@ class Prog2 {
             currBucket.addRecord(recordId, dbIndex);
             return true;
         } else {
+            System.out.println("Bucket full");
             if (currBucket.getBucketDepth() == directory.getGlobalDepth()) {
+                System.out.println("Splitting Bucket");
                 directory.splitDirectory();
                 dirIndex *= 10;
+            }
+            while(dirIndex%10 != 0) {
+                dirIndex--;
             }
             for (int i = 0; i < 10; i++) {
                 directory.setValueAtIndex(dirIndex + i, null);
@@ -220,7 +237,7 @@ class Prog2 {
     static void searchBucket(RandomAccessFile dbStream, Bucket curBucket, String query, int[] fieldLengths) {
         IndexRecord[] indexes = curBucket.getRecords();
         for (IndexRecord index : indexes) {
-            if (index.getId().endsWith(query)) {
+            if (index.getId().trim().endsWith(query)) {
                 DataRecord record = getRecord(dbStream, index.getIndexPointer(), fieldLengths);
                 System.out.println(record);
             }
@@ -260,7 +277,7 @@ class Prog2 {
                 dataStream.readInt()}; // Array used to store length information being read from the file
             return fieldLengths;
         } catch (IOException e) {
-            System.out.println("I/O ERROR: Error accessing file to get field lengths.");
+            System.out.println("I/O ERROR: Error getting file meta data. File may be empty.");
             System.exit(-1);
             return null;
         }
