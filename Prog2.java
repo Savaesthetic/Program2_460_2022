@@ -227,21 +227,26 @@ class Prog2 {
      int startIndex, int range, String query) {
          int exclusiveEnd = startIndex + range;
          int[] fieldLengths = getFieldLengths(dbStream); // Lengths of string fields in records
+         int recordsFound = 0;
          for (int i = startIndex; i < exclusiveEnd; i++) {
              Long bucketIndex = directory.getValueAtIndex(i);
              Bucket currBucket = getBucket(bucketStream, bucketIndex, query.length());
-             searchBucket(dbStream, currBucket, query, fieldLengths);
+             recordsFound += searchBucket(dbStream, currBucket, query, fieldLengths);
          }
+         System.out.println(recordsFound + " records matched your query.");
     }
 
-    static void searchBucket(RandomAccessFile dbStream, Bucket curBucket, String query, int[] fieldLengths) {
+    static int searchBucket(RandomAccessFile dbStream, Bucket curBucket, String query, int[] fieldLengths) {
+        int recordsFound = 0;
         IndexRecord[] indexes = curBucket.getRecords();
         for (IndexRecord index : indexes) {
             if (index.getId().trim().endsWith(query)) {
+                recordsFound++;
                 DataRecord record = getRecord(dbStream, index.getIndexPointer(), fieldLengths);
                 System.out.println(record);
             }
         }
+        return recordsFound;
     }
 
     static DataRecord getRecord(RandomAccessFile dbStream, long index, int[] fieldLengths) {
