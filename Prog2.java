@@ -26,8 +26,7 @@ class Prog2 {
 
         // Main program functions
         readDatabaseFile(dbStream, bucketStream);
-        countRecords(bucketStream);
-        getSearchQuerie(dbStream, bucketStream);
+        getSearchQuery(dbStream, bucketStream);
     }
 
     static RandomAccessFile createNewBucketFile() {
@@ -79,41 +78,12 @@ class Prog2 {
                 DataRecord record = new DataRecord();
                 record.fetchObject(dataStream, fieldLengths);
                 addRecordToBucketFile(bucketStream, record.getProjectId(), dbIndex);
-                System.out.println("Records added: " + i);
                 i++;
             }
-            testPrintBuckets(bucketStream, fieldLengths[0]);
-            testPrintDir();
         } catch (IOException e) {
             System.out.println("I/O ERROR: Couldn't get the file's length.");
             System.exit(-1);
         }
-    }
-
-    static void testPrintBuckets(RandomAccessFile bucketStream, int idLength) {
-        System.out.println("TEST INSERTS");
-        Long[] testMappings = directory.getMappings();
-        for (Long index : testMappings) {
-            Bucket testBucket = getBucket(bucketStream, index, idLength);
-            System.out.println(testBucket);
-        }
-    }
-
-    static void testPrintDir() {
-        Long[] testMappings = directory.getMappings();
-        for (Long index : testMappings) {
-            System.out.println(index);
-        }
-    }
-
-    static void countRecords(RandomAccessFile bucketStream) {
-        int sum = 0;
-        Long[] temp = directory.getMappings();
-        for (int i = 0; i < temp.length; i++) {
-            Bucket tempBucket = getBucket(bucketStream, temp[i], 0);
-            sum += tempBucket.getNumRecords();
-        }
-        System.out.println(sum);
     }
 
     // This function will be used to add a given record to the bucket file we are creating
@@ -127,7 +97,6 @@ class Prog2 {
         if (writeFlag) {
             writeBucket(bucketStream, currBucket, dirIndex);
         }
-        System.out.printf("ID: %s, Integerized: %s, Index: %d, Val: %d\n", projectId, intId, dirIndex, bucketIndex);
     }
 
     static Bucket getBucket(RandomAccessFile bucketStream, Long bucketIndex, int idLength) {
@@ -155,9 +124,7 @@ class Prog2 {
             currBucket.addRecord(recordId, dbIndex);
             return true;
         } else {
-            System.out.println("Bucket full");
             if (currBucket.getBucketDepth() == directory.getGlobalDepth()) {
-                System.out.println("Splitting Bucket");
                 directory.splitDirectory();
                 dirIndex *= 10;
             }
@@ -194,7 +161,7 @@ class Prog2 {
         }
     }
 
-    static void getSearchQuerie(RandomAccessFile dbStream, RandomAccessFile bucketStream) {
+    static void getSearchQuery(RandomAccessFile dbStream, RandomAccessFile bucketStream) {
         Scanner userInput = new Scanner(System.in);
         while (true) {
             System.out.println("Enter Project ID suffix to search for (-1 to exit).");
